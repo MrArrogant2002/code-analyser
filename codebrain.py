@@ -66,12 +66,10 @@ def load_files(files):
 # CHUNK CODE — overlapping windows
 ############################################
 
-def split_code(text, size=500, overlap=100):
+def split_code(text, size=500):
     chunks = []
-    i = 0
-    while i < len(text):
-        chunks.append(text[i:i + size])
-        i += size - overlap
+    for i in range(0, len(text), size):
+        chunks.append(text[i:i+size])
     return chunks
 
 ############################################
