@@ -123,8 +123,15 @@ def build_vector_db(embeddings):
 def load_llm(model_key):
     model_id = MODELS[model_key]
     print(f"\nLoading model: {model_id}")
-    trust = model_key == "nemotron"
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=trust)
+    trust = model_key in ("nemotron", "gpt-oss")
+    # Some custom tokenizers fail fast-tokenizer JSON parsing; fall back to slow.
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=trust)
+    except Exception:
+        print("  Fast tokenizer failed — retrying with use_fast=False ...")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_id, trust_remote_code=trust, use_fast=False
+        )
     dtype = torch.bfloat16 if model_key == "nemotron" else torch.float16
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
