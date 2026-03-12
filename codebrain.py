@@ -124,38 +124,6 @@ def load_llm(model_key):
     model_id = MODELS[model_key]
     print(f"\nLoading model: {model_id}")
     trust = model_key in ("nemotron", "gpt-oss")
-
-    # ── Patch torch.xpu so models whose remote-code checks for Intel XPU
-    #    don't crash when running on CPU/CUDA hardware. ──────────────────
-    if not hasattr(torch, "xpu"):
-        class _XPUStub:
-            @staticmethod
-            def is_available():
-                return False
-            def __getattr__(self, name):
-                raise AttributeError(f"torch.xpu has no attribute '{name}'")
-        torch.xpu = _XPUStub()
-
-    # ── mamba-ssm is required by Mamba-based models (e.g. Nemotron). ────
-    #    Try a live install if the package is missing.
-    if model_key == "nemotron":
-        try:
-            import mamba_ssm  # noqa: F401
-        except ImportError:
-            import subprocess
-            print("  mamba-ssm not found — attempting install (requires CUDA 11.6+) ...")
-            result = subprocess.run(
-                [__import__("sys").executable, "-m", "pip", "install", "mamba-ssm"],
-                capture_output=True, text=True,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(
-                    "mamba-ssm is required by the Mamba model but could not be installed.\n"
-                    + result.stderr.strip()
-                    + "\nInstall manually: pip install mamba-ssm  (needs CUDA 11.6+)"
-                )
-            print("  mamba-ssm installed successfully.")
-
     # Some custom tokenizers fail fast-tokenizer JSON parsing; fall back to slow.
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=trust)
@@ -164,10 +132,10 @@ def load_llm(model_key):
         tokenizer = AutoTokenizer.from_pretrained(
             model_id, trust_remote_code=trust, use_fast=False
         )
-    dtype = torch.float16 if model_key == "deepseek" else torch.bfloat16
+    dtype = torch.bfloat16 if model_key == "nemotron" else torch.float16
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
-        dtype=dtype,           # torch_dtype was deprecated; use dtype
+        torch_dtype=dtype,
         device_map="auto",
         trust_remote_code=trust,
     )
