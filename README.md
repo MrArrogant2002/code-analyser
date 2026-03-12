@@ -9,9 +9,13 @@ A local **Retrieval-Augmented Generation (RAG)** chatbot that lets you ask natur
 ```
 GitHub Repo → C files → Overlapping chunks → Embeddings (cached)
                                                      ↓
-User question → Embed question → FAISS search → Top-3 chunks
+User question → Embed question → FAISS search → Top-3 results
                                                      ↓
-                                          LLM explains each chunk
+                              Display all 3 file paths for context
+                                                     ↓
+                              Pass top-1 code chunk to selected LLM
+                                                     ↓
+                                          LLM explanation printed
 ```
 
 ---
@@ -52,7 +56,7 @@ pip install -r requirements.txt
 
 ### 4. Run
 ```bash
-python codebrain.py
+python main.py
 ```
 
 On the first run the script will:
@@ -77,8 +81,7 @@ CodeBrain>
 
 | Command | Description |
 |---------|-------------|
-| `ask` | Query a single model of your choice |
-| `compare` | Run all 3 models on the same question and save a report |
+| `ask` | Select a model and ask a question about the codebase |
 | `exit` | Quit the program |
 
 ### Example — Ask
@@ -102,47 +105,18 @@ Output:
   Question: How does the binary search implementation work?
 ============================================================
 
-[Snippet 1]  repo/searching/binary_search.c
---------------------------------------------------
+Retrieved files (top 3):
+  [1] repo/searching/binary_search.c  ← analysed
+  [2] repo/searching/ternary_search.c
+  [3] repo/searching/linear_search.c
+
+--- Code snippet from repo/searching/binary_search.c ---
 <code>
 --------------------------------------------------
+
 Explanation:
 <clean model output — only the generated answer, not the prompt>
 ```
-
-### Example — Compare
-
-```
-CodeBrain> compare
-Question for comparison: What does the bubble sort algorithm do?
-```
-
-All three models are loaded sequentially, each generating explanations for the top-3 retrieved snippets. A timestamped Markdown report is saved:
-
-```
-Report saved -> report_20260312_143022.md
-```
-
----
-
-## Comparison Report
-
-The generated report (`report_YYYYMMDD_HHMMSS.md`) contains:
-
-- Date and question
-- Per-model explanations for each code snippet (with word counts)
-- A summary table comparing total and average words per snippet
-- A simple "best model" verdict based on output detail
-
-Example summary table:
-
-| Model | HuggingFace ID | Total Words | Avg Words/Snippet |
-|-------|---------------|-------------|-------------------|
-| **deepseek** | `deepseek-ai/deepseek-coder-1.3b-instruct` | 312 | 104 |
-| **nemotron** | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16` | 487 | 162 |
-| **gpt-oss** | `openai/gpt-oss-20b` | 451 | 150 |
-
-> Word count is a proxy for detail. Review the full explanations in the report for a qualitative assessment.
 
 ---
 
@@ -150,14 +124,18 @@ Example summary table:
 
 ```
 code-analyzer/
-├── codebrain.py          # Main application
+├── main.py               # Entry point — CLI loop
+├── config.py             # Constants: model registry, file paths
+├── indexer.py            # Repo cloning, file loading, chunking, embeddings, FAISS index
+├── retriever.py          # Semantic search — returns top-3 (filepath, code) pairs
+├── model_loader.py       # LLM loading with model-specific configuration
+├── inference.py          # Prompt building, generation, clean output decoding
 ├── requirements.txt      # Python dependencies
 ├── flaws.md              # Documented flaws and fixes
 ├── README.md             # This file
 ├── embeddings_cache.pkl  # Auto-generated — cached embeddings
 ├── chunks_cache.pkl      # Auto-generated — cached code chunks
 ├── faiss.index           # Auto-generated — FAISS vector index
-├── report_*.md           # Auto-generated — comparison reports
 └── repo/                 # Auto-cloned — TheAlgorithms/C source
 ```
 
@@ -194,6 +172,7 @@ All issues identified during code review have been resolved. See [flaws.md](flaw
 
 ## Notes
 
-- Large models (`nemotron`, `gpt-oss`) require significant VRAM (16 GB+ recommended). In `compare` mode, each model is unloaded from VRAM before the next is loaded.
+- Large models (`nemotron`, `gpt-oss`) require significant VRAM (16 GB+ recommended).
+- Only the top-1 semantically matched code chunk is sent to the LLM; all 3 retrieved file paths are shown for context.
 - If you update the repo, delete the cache files (`*.pkl`, `faiss.index`) to force a fresh embedding run.
 - The `deepseek` model is the most practical for CPU or low-VRAM setups.
