@@ -7,7 +7,25 @@ from config import MODELS
 # LLM LOADER
 ############################################
 
+def _ensure_torch_xpu_compat():
+    """Provide a minimal torch.xpu shim for older PyTorch builds."""
+    if hasattr(torch, "xpu"):
+        return
+
+    class _XPUCompat:
+        @staticmethod
+        def is_available():
+            return False
+
+        @staticmethod
+        def device_count():
+            return 0
+
+    torch.xpu = _XPUCompat()
+
 def load_llm(model_key):
+    _ensure_torch_xpu_compat()
+
     model_id = MODELS[model_key]
     print(f"\nLoading model: {model_id}")
 

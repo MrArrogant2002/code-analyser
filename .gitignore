@@ -1,0 +1,18 @@
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Local IDE/system files
+.DS_Store
+Thumbs.db
+
+# Generated retrieval artifacts
+*.pkl
+*.index
+result_*.md
+
+# Cloned source repository used for indexing
+repo/
